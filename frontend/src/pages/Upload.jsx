@@ -76,7 +76,7 @@ export default function Upload() {
       <div className="w-full text-center">
         <span className="inline-flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent">
           <span className="h-1.5 w-1.5 animate-pulse-glow rounded-full bg-accent" aria-hidden="true" />
-          AI-Powered Contract Analysis
+          ClauseIQ — AI Contract Analysis
         </span>
         <h1 className="mt-5 text-3xl font-bold tracking-tight text-foreground text-balance sm:text-5xl">
           Decode any contract in{" "}

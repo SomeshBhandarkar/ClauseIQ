@@ -8,11 +8,11 @@ export default function Navbar() {
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
         <Link to="/" className="group flex items-center gap-2.5 text-lg font-bold tracking-tight">
           <span className="relative flex h-8 w-8 items-center justify-center rounded-lg border border-accent/40 bg-accent/10 text-sm font-bold text-accent shadow-[0_0_18px_-4px_var(--color-accent)]">
-            CA
+            CQ
             <span className="absolute inset-0 rounded-lg ring-1 ring-inset ring-accent/20" aria-hidden="true" />
           </span>
           <span className="text-foreground">
-            Contract<span className="text-accent">AI</span>
+            Clause<span className="text-accent">IQ</span>
           </span>
         </Link>
 
