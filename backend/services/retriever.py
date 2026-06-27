@@ -40,6 +40,12 @@ def retrieve(query: str, contract_id: str, top_k: int = 5) -> list[str]:
     # Merge with RRF — returns unified ranked list
     merged = _reciprocal_rank_fusion(faiss_results, bm25_results)
 
+    # Temporary debug — remove after testing
+    print(f"\n[DEBUG] Query: {query}")
+    print(f"[DEBUG] FAISS top 3: {[c[:60] for c in faiss_results[:3]]}")
+    print(f"[DEBUG] BM25  top 3: {[c[:60] for c in bm25_results[:3]]}")
+    print(f"[DEBUG] RRF   top 3: {[chunk[:60] for chunk, score in merged[:3]]}")
+
     # Return top_k chunk texts
     return [chunk for chunk, score in merged[:top_k]]
 

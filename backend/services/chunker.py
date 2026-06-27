@@ -59,6 +59,14 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[Chun
             token_count=current_tokens,
         ))
 
+    # Drop noise chunks — signature blocks, headers, and lone labels
+    # are typically under 100 chars and pollute FAISS results
+    chunks = [c for c in chunks if len(c.text) >= 100]
+
+    # Re-index after filtering so indices stay contiguous
+    for i, c in enumerate(chunks):
+        c.index = i
+
     return chunks
 
 
