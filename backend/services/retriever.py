@@ -2,10 +2,12 @@ import os
 import json
 import numpy as np
 import faiss
+import cohere
 from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
 
 _model = SentenceTransformer("all-MiniLM-L6-v2")
+_cohere = cohere.Client(os.environ.get("COHERE_API_KEY"))
 
 STORE_DIR = "vector_store"
 
@@ -14,43 +16,40 @@ STORE_DIR = "vector_store"
 
 def retrieve(query: str, contract_id: str, top_k: int = 5) -> list[str]:
     """
-    Hybrid retrieval pipeline:
-      1. FAISS  — semantic vector search        (finds similar meaning)
-      2. BM25   — keyword search                (finds exact terms)
-      3. RRF    — merges both ranked lists      (consensus wins)
+    Full hybrid retrieval pipeline — 3 stages:
 
-    Returns top_k chunks after merging.
-    These go directly to Claude in analyzer.py — interface unchanged.
+      Stage 1: FAISS (semantic) + BM25 (keyword) run in parallel
+               Each returns top 10 chunks independently
 
-    Args:
-        query:       the clause question e.g. "Does this contract auto-renew?"
-        contract_id: which contract to search
-        top_k:       how many chunks to return after merging (default 5)
+      Stage 2: RRF merges both lists into one ranked list of ~20 chunks
+               Consensus between the two lists wins
+
+      Stage 3: Cohere Rerank reads all ~20 chunks + the query together
+               Re-scores by actual relevance, keeps top_k
+
+    Returns top_k chunks ready to send to Claude.
+    Interface unchanged from old retriever — analyzer.py needs zero changes.
     """
-    # Load chunks from disk (saved by embedder.py)
     chunks = _load_chunks(contract_id)
 
     if not chunks:
         raise ValueError(f"No chunks found for contract '{contract_id}'.")
 
-    # Run both retrievers — each returns ranked list of (chunk_text, rank)
+    # Stage 1 — run both retrievers independently
     faiss_results = _faiss_search(query, contract_id, chunks, top_k=10)
     bm25_results  = _bm25_search(query, chunks, top_k=10)
 
-    # Merge with RRF — returns unified ranked list
+    # Stage 2 — merge with RRF
     merged = _reciprocal_rank_fusion(faiss_results, bm25_results)
+    merged_chunks = [chunk for chunk, score in merged]
 
-    # Temporary debug — remove after testing
-    print(f"\n[DEBUG] Query: {query}")
-    print(f"[DEBUG] FAISS top 3: {[c[:60] for c in faiss_results[:3]]}")
-    print(f"[DEBUG] BM25  top 3: {[c[:60] for c in bm25_results[:3]]}")
-    print(f"[DEBUG] RRF   top 3: {[chunk[:60] for chunk, score in merged[:3]]}")
+    # Stage 3 — rerank with Cohere, keep top_k
+    reranked = _cohere_rerank(query, merged_chunks, top_k=top_k)
 
-    # Return top_k chunk texts
-    return [chunk for chunk, score in merged[:top_k]]
+    return reranked
 
 
-# ── Stage 1: FAISS semantic search ───────────────────────────────────────────
+# ── Stage 1a: FAISS semantic search ──────────────────────────────────────────
 
 def _faiss_search(
     query: str,
@@ -59,11 +58,8 @@ def _faiss_search(
     top_k: int
 ) -> list[str]:
     """
-    Convert query to vector, find nearest chunk vectors in FAISS.
-    Returns ordered list of chunk texts (most similar first).
-
-    Theory: cosine/L2 distance in 384-dimensional space.
-    Chunks about similar concepts cluster together.
+    Embed query → find nearest vectors in FAISS index.
+    Finds chunks with similar MEANING to the query.
     """
     index_path = os.path.join(STORE_DIR, f"{contract_id}.index")
 
@@ -73,45 +69,29 @@ def _faiss_search(
             "Upload the contract first."
         )
 
-    index = faiss.read_index(index_path)
-
-    # Embed the query using the same model used for chunks
+    index     = faiss.read_index(index_path)
     query_vec = _model.encode([query], show_progress_bar=False)
     query_vec = np.array(query_vec, dtype="float32")
 
-    actual_k = min(top_k, len(chunks))
+    actual_k  = min(top_k, len(chunks))
     _, indices = index.search(query_vec, actual_k)
 
-    # Return chunk texts in ranked order (index 0 = most similar)
     return [chunks[i] for i in indices[0] if i < len(chunks)]
 
 
-# ── Stage 2: BM25 keyword search ─────────────────────────────────────────────
+# ── Stage 1b: BM25 keyword search ────────────────────────────────────────────
 
 def _bm25_search(query: str, chunks: list[str], top_k: int) -> list[str]:
     """
-    Tokenize all chunks, build BM25 index, score query against all chunks.
-    Returns ordered list of chunk texts (highest keyword score first).
-
-    Theory: BM25 scores based on term frequency (TF) and inverse document
-    frequency (IDF). Terms that appear in the query AND are rare across
-    all chunks get the highest score.
-
-    Example: "termination without cause" — if only 1 of 20 chunks
-    contains the word "cause", that chunk gets a very high IDF score.
+    Tokenize chunks → build BM25 index → score query against all chunks.
+    Finds chunks with exact KEYWORD matches to the query.
     """
-    # Tokenize: lowercase + split on whitespace
-    # Simple but effective for legal text
     tokenized_chunks = [chunk.lower().split() for chunk in chunks]
     tokenized_query  = query.lower().split()
 
-    # Build BM25 index over all chunks
-    bm25 = BM25Okapi(tokenized_chunks)
-
-    # Score all chunks against the query
+    bm25   = BM25Okapi(tokenized_chunks)
     scores = bm25.get_scores(tokenized_query)
 
-    # Sort by score descending, return top_k chunk texts
     ranked_indices = sorted(
         range(len(scores)),
         key=lambda i: scores[i],
@@ -121,7 +101,7 @@ def _bm25_search(query: str, chunks: list[str], top_k: int) -> list[str]:
     return [chunks[i] for i in ranked_indices[:top_k]]
 
 
-# ── Stage 3: Reciprocal Rank Fusion ──────────────────────────────────────────
+# ── Stage 2: Reciprocal Rank Fusion ──────────────────────────────────────────
 
 def _reciprocal_rank_fusion(
     faiss_results: list[str],
@@ -129,39 +109,81 @@ def _reciprocal_rank_fusion(
     k: int = 60
 ) -> list[tuple[str, float]]:
     """
-    Merge two ranked lists into one using RRF.
+    Merge two ranked lists using RRF.
 
-    Formula: score(chunk) = 1/(k + rank_in_faiss) + 1/(k + rank_in_bm25)
+    Formula: score(chunk) = 1/(k+rank_faiss) + 1/(k+rank_bm25)
 
-    Key insight: rank position matters, not the raw scores.
-    This solves the "incompatible scales" problem — FAISS scores are
-    cosine distances (0-1), BM25 scores are term frequencies (0-∞).
-    You can't add those directly. But you CAN add their rank positions.
-
-    Why k=60?
-    k prevents the #1 ranked item from being overwhelmingly dominant.
-    With k=60: rank 1 scores 1/61 = 0.0164, rank 2 scores 1/62 = 0.0161
-    The difference is small — consensus beats a single dominant rank.
-    With k=1: rank 1 scores 1/2 = 0.5, rank 2 scores 1/3 = 0.33
-    Much more skewed — rank 1 dominates everything.
-
-    A chunk appearing in BOTH lists (even at rank 5) beats a chunk
-    appearing at rank 1 in only one list. That's the right behavior.
+    A chunk in both lists at rank 5 beats a chunk at rank 1 in only
+    one list. Consensus beats dominance. k=60 prevents any single
+    top-ranked item from dominating everything.
     """
     scores: dict[str, float] = {}
 
-    # Score from FAISS ranked list
     for rank, chunk in enumerate(faiss_results):
         scores[chunk] = scores.get(chunk, 0.0) + 1.0 / (k + rank + 1)
 
-    # Add score from BM25 ranked list
     for rank, chunk in enumerate(bm25_results):
         scores[chunk] = scores.get(chunk, 0.0) + 1.0 / (k + rank + 1)
 
-    # Sort by combined RRF score descending
-    ranked = sorted(scores.items(), key=lambda x: x[1], reverse=True)
+    return sorted(scores.items(), key=lambda x: x[1], reverse=True)
 
-    return ranked  # list of (chunk_text, rrf_score)
+
+# ── Stage 3: Cohere Rerank ────────────────────────────────────────────────────
+
+def _cohere_rerank(
+    query: str,
+    chunks: list[str],
+    top_k: int = 5
+) -> list[str]:
+    """
+    Send query + all RRF-merged chunks to Cohere Rerank.
+
+    Cohere reads each chunk alongside the query and scores true relevance
+    from 0.0 to 1.0. This is the final quality gate before Claude.
+
+    Why this matters:
+      RRF merges by position math — it's blind to actual content.
+      Cohere actually reads the text. A chunk that says "payment due Net 30"
+      will score near 0.0 for a query about auto-renewal, even if RRF
+      ranked it high because it appeared in both FAISS and BM25 results.
+
+    Cost: Cohere free tier = 1,000 reranks/month. Each analyze call
+    makes 25 rerank requests (one per clause). That's 40 full contract
+    analyses free per month — plenty for testing and early users.
+
+    Falls back to RRF order if Cohere API fails — no silent breakage.
+    """
+    if not chunks:
+        return []
+
+    # Cohere requires at least 1 document and the query to be non-empty
+    if not query.strip():
+        return chunks[:top_k]
+
+    try:
+        response = _cohere.rerank(
+            model     = "rerank-english-v3.0",
+            query     = query,
+            documents = chunks,
+            top_n     = top_k,
+        )
+
+        # response.results is sorted by relevance score descending
+        # Each result has: .index (position in input chunks), .relevance_score
+        reranked = [chunks[r.index] for r in response.results]
+
+        # Debug — remove after testing
+        print(f"\n[COHERE] Query: {query[:60]}")
+        for r in response.results:
+            print(f"  score={r.relevance_score:.3f} | {chunks[r.index][:70]}...")
+
+        return reranked
+
+    except Exception as e:
+        # Graceful fallback — if Cohere is down or rate limited,
+        # return RRF order instead of crashing the whole analysis
+        print(f"[COHERE] Rerank failed ({e}), falling back to RRF order")
+        return chunks[:top_k]
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────
