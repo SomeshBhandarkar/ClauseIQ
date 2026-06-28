@@ -24,3 +24,6 @@ build/
 
 # OS
 .DS_Store
+
+# Claude Code context file — local only
+CLAUDE.md
