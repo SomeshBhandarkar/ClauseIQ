@@ -17,13 +17,15 @@ class ClauseFinding(BaseModel):
     clause_key: str
     found: bool
     evidence: str
-    confidence: str   # "high" | "medium" | "low"
-    risk: str         # "high" | "medium" | "low" | "none"
+    confidence: str           # "high" | "medium" | "low"
+    risk: str                 # "high" | "medium" | "low" | "none"
     plain_english: str
+    negotiation_tip: str = "" # empty string if low/none risk
 
 
 class AnalysisResponse(BaseModel):
     contract_id: str
+    contract_type: str        # "freelance" | "employment" | "nda" | "saas" | "lease" | "other"
     findings: list[ClauseFinding]
     grouped: dict
     high_risk_count: int

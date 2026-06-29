@@ -2,6 +2,7 @@ import os
 import json
 import anthropic
 from services.retriever import retrieve
+from services.knowledge_base import get_knowledge_context
 
 _client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 MODEL = "claude-sonnet-4-5"
@@ -193,10 +194,6 @@ def detect_contract_type(raw_text: str) -> str:
     """
     first_500_words = " ".join(raw_text.split()[:500])
 
-    # temporary debug — remove after verifying
-    print(f"\n[TYPE DETECTION] Sending first 500 words to Claude:")
-    print(f"{first_500_words[:300]}...")
-
     prompt = f"""Read the beginning of this contract and classify its type.
 
 Reply with EXACTLY one word from this list:
@@ -308,23 +305,38 @@ def analyze_contract(contract_id: str, raw_text: str = None) -> dict:
 
 def _call_claude(clause_key: str, query: str, context: str) -> dict:
     """
-    Grounded prompt — Claude answers ONLY from retrieved chunks.
-    Forces citation. Returns structured JSON. Returns NOT_FOUND if absent.
+    Grounded prompt — Claude answers from retrieved chunks AND knowledge base.
+
+    Two sources of truth:
+      1. CONTRACT TEXT  — what THIS specific contract says
+      2. INDUSTRY KNOWLEDGE — what standard looks like (from knowledge base)
+
+    Claude compares the two and tells the user not just what the clause
+    says but whether it's better or worse than industry standard.
     """
+    # Get expert context for this clause type from knowledge base
+    kb_context = get_knowledge_context(clause_key)
+
+    # Build the knowledge base section only if we have an entry
+    kb_section = f"""
+INDUSTRY KNOWLEDGE (use this to compare against industry standard):
+{kb_context}
+""" if kb_context else ""
+
     prompt = f"""You are a contract analyst helping a small business owner understand their contract.
 
 STRICT RULES:
-1. Answer ONLY using the CONTRACT TEXT provided below.
-2. If the information is not present, set "found" to false and "evidence" to "NOT_FOUND".
-3. Do NOT use outside legal knowledge — only what is in the text.
+1. Answer ONLY using the CONTRACT TEXT provided below to determine what the contract says.
+2. Use the INDUSTRY KNOWLEDGE section to compare against standard practice.
+3. If the clause is not in the contract text, set "found" to false and "evidence" to "NOT_FOUND".
 4. Quote the exact clause text as evidence (verbatim, max 2 sentences).
-5. plain_english must be 1-2 sentences — simple language, no jargon.
-6. risk: "high" if dangerous or one-sided, "medium" if needs attention,
-         "low" if standard, "none" if not found.
+5. plain_english must be 2-3 sentences — explain what it says, whether it is standard or aggressive, and what the user should watch out for.
+6. risk: "high" if worse than industry standard or dangerous, "medium" if slightly aggressive but common, "low" if standard, "none" if not found.
+7. negotiation_tip: one sentence on what to negotiate if risk is high or medium. Empty string if risk is low or none.
 
 CONTRACT TEXT:
 {context}
-
+{kb_section}
 QUESTION: {query}
 
 Respond with ONLY valid JSON — no markdown, no code blocks, no extra text:
@@ -334,7 +346,8 @@ Respond with ONLY valid JSON — no markdown, no code blocks, no extra text:
   "evidence": "exact quote from the contract, or NOT_FOUND",
   "confidence": "high" or "medium" or "low",
   "risk": "high" or "medium" or "low" or "none",
-  "plain_english": "one or two plain sentences for a non-lawyer"
+  "plain_english": "2-3 sentences: what it says, is it standard or aggressive, what to watch out for",
+  "negotiation_tip": "one sentence on what to negotiate, or empty string if low risk"
 }}"""
 
     try:
