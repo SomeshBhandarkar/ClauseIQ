@@ -193,6 +193,7 @@ def detect_contract_type(raw_text: str) -> str:
     This call costs ~$0.0001 — essentially free.
     """
     first_500_words = " ".join(raw_text.split()[:500])
+    print(f"[TYPE DETECTION] Sending first 500 words to Claude:\n{first_500_words[:300]}...")
 
     prompt = f"""Read the beginning of this contract and classify its type.
 

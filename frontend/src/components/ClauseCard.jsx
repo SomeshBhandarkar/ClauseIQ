@@ -22,6 +22,7 @@ export default function ClauseCard({ finding }) {
     confidence,
     risk = "none",
     plain_english,
+    negotiation_tip,
   } = finding || {}
 
   const title = toTitleCase(clause_key)
@@ -45,6 +46,13 @@ export default function ClauseCard({ finding }) {
 
           {plain_english && (
             <p className="mt-1 text-sm leading-relaxed text-muted">{plain_english}</p>
+          )}
+
+          {negotiation_tip && (risk === "high" || risk === "medium") && (
+            <div className="mt-2 flex gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2">
+              <span className="shrink-0 text-sm">💡</span>
+              <p className="text-xs leading-relaxed text-blue-300">{negotiation_tip}</p>
+            </div>
           )}
 
           {found ? (

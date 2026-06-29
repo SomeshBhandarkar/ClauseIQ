@@ -42,7 +42,7 @@ export default function Report() {
   const [report, setReport] = useState(null)
   const [error, setError] = useState("")
 
-  const timerRef = useRef(null)
+  const intervalRef = useRef(null)
 
   useEffect(() => {
     if (!jobId) {
@@ -51,31 +51,28 @@ export default function Report() {
       return
     }
 
-    let cancelled = false
-
     const tick = async () => {
       try {
         const data = await pollStatus(jobId)
-        if (cancelled) return
 
         setProgress(data.progress ?? 0)
         setTotal(data.total ?? 0)
         setCurrentClause(data.current_clause ?? "")
 
         if (data.status === "done") {
+          clearInterval(intervalRef.current)
           setStatus("done")
           const reportData = await getReport(contractId)
-          if (!cancelled) setReport(reportData)
+          setReport(reportData)
           return
         }
         if (data.status === "error") {
+          clearInterval(intervalRef.current)
           setStatus("error")
           setError(data.message || "Analysis failed. Please try again.")
-          return
         }
-        timerRef.current = setTimeout(tick, 2000)
       } catch (err) {
-        if (cancelled) return
+        clearInterval(intervalRef.current)
         setStatus("error")
         setError(
           err?.response?.data?.detail || err?.message || "Unable to reach the analysis service.",
@@ -84,10 +81,8 @@ export default function Report() {
     }
 
     tick()
-    return () => {
-      cancelled = true
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
+    intervalRef.current = setInterval(tick, 2000)
+    return () => clearInterval(intervalRef.current)
   }, [jobId, contractId])
 
   if (status === "error") {
@@ -163,9 +158,16 @@ function ReportView({ report }) {
       {/* Summary card */}
       <section className="relative overflow-hidden rounded-2xl border border-border bg-surface/70 p-6">
         <div className="absolute -top-px left-6 right-6 h-px bg-gradient-to-r from-transparent via-accent/60 to-transparent" aria-hidden="true" />
-        <h1 className="text-2xl font-bold tracking-tight text-foreground text-balance">
-          {report.filename || "Contract Analysis"}
-        </h1>
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground text-balance">
+            {report.filename || "Contract Analysis"}
+          </h1>
+          {report.contract_type && report.contract_type !== "other" && (
+            <span className="inline-flex items-center rounded-full border border-accent/40 bg-accent/10 px-3 py-1 text-xs font-semibold capitalize text-accent">
+              {report.contract_type} Agreement
+            </span>
+          )}
+        </div>
 
         <div className="mt-5 flex flex-wrap gap-3">
           <StatBadge
