@@ -6,8 +6,15 @@ import cohere
 from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
 
-_model = SentenceTransformer("all-MiniLM-L6-v2")
+_model = None
 _cohere = cohere.Client(os.environ.get("COHERE_API_KEY"))
+
+
+def get_model():
+    global _model
+    if _model is None:
+        _model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+    return _model
 
 STORE_DIR = "vector_store"
 
@@ -70,7 +77,7 @@ def _faiss_search(
         )
 
     index     = faiss.read_index(index_path)
-    query_vec = _model.encode([query], show_progress_bar=False)
+    query_vec = get_model().encode([query], show_progress_bar=False)
     query_vec = np.array(query_vec, dtype="float32")
 
     actual_k  = min(top_k, len(chunks))

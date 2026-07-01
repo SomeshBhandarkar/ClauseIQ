@@ -4,7 +4,14 @@ import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
 
-_model = SentenceTransformer("all-MiniLM-L6-v2")
+_model = None
+
+
+def get_model():
+    global _model
+    if _model is None:
+        _model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+    return _model
 
 STORE_DIR    = "vector_store"
 KB_INDEX     = os.path.join(STORE_DIR, "knowledge_base.index")
@@ -261,7 +268,7 @@ def build_knowledge_base() -> None:
         )
         texts.append(combined)
 
-    embeddings = _model.encode(texts, show_progress_bar=False)
+    embeddings = get_model().encode(texts, show_progress_bar=False)
     embeddings = np.array(embeddings, dtype="float32")
 
     index = faiss.IndexFlatL2(384)

@@ -5,7 +5,14 @@ import faiss
 from sentence_transformers import SentenceTransformer
 from services.chunker import Chunk
 
-_model = SentenceTransformer("all-MiniLM-L6-v2")
+_model = None
+
+
+def get_model():
+    global _model
+    if _model is None:
+        _model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+    return _model
 
 DIMENSION = 384
 STORE_DIR = "vector_store"
@@ -27,7 +34,7 @@ def embed_and_store(contract_id: str, chunks: list[Chunk]) -> None:
     texts = [chunk.text for chunk in chunks]
 
     # ── Embed all chunks in one batch ────────────────────────────────────────
-    embeddings = _model.encode(texts, show_progress_bar=False)
+    embeddings = get_model().encode(texts, show_progress_bar=False)
     embeddings = np.array(embeddings, dtype="float32")
 
     # ── Build and save FAISS index ───────────────────────────────────────────
