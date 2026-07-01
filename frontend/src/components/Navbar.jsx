@@ -1,7 +1,16 @@
-import { Link, useLocation } from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
+import { useAuth } from "../context/AuthContext.jsx"
+import { supabase } from "../lib/supabase.js"
 
 export default function Navbar() {
   const { pathname } = useLocation()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const onSignOut = async () => {
+    await supabase.auth.signOut()
+    navigate("/")
+  }
 
   return (
     <header className="sticky top-0 z-30 border-b border-border bg-background/70 backdrop-blur-xl">
@@ -17,22 +26,41 @@ export default function Navbar() {
         </Link>
 
         <div className="flex items-center gap-2 sm:gap-4">
-          <Link
-            to="/dashboard"
-            className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
-              pathname === "/dashboard"
-                ? "text-accent"
-                : "text-muted hover:text-foreground"
-            }`}
-          >
-            Dashboard
-          </Link>
-          <Link
-            to="/"
-            className="rounded-lg border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent transition-all hover:bg-accent hover:text-accent-foreground hover:shadow-[0_0_22px_-4px_var(--color-accent)]"
-          >
-            Upload Contract
-          </Link>
+          {user ? (
+            <>
+              <Link
+                to="/dashboard"
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  pathname === "/dashboard"
+                    ? "text-accent"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                Dashboard
+              </Link>
+              <span className="hidden text-sm text-muted sm:inline">{user.email}</span>
+              <button
+                type="button"
+                onClick={onSignOut}
+                className="rounded-md px-3 py-2 text-sm font-medium text-muted transition-colors hover:text-foreground"
+              >
+                Sign Out
+              </button>
+              <Link
+                to="/upload"
+                className="rounded-lg border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent transition-all hover:bg-accent hover:text-accent-foreground hover:shadow-[0_0_22px_-4px_var(--color-accent)]"
+              >
+                Upload Contract
+              </Link>
+            </>
+          ) : (
+            <Link
+              to="/"
+              className="rounded-lg border border-accent/40 bg-accent/10 px-4 py-2 text-sm font-semibold text-accent transition-all hover:bg-accent hover:text-accent-foreground hover:shadow-[0_0_22px_-4px_var(--color-accent)]"
+            >
+              Log In
+            </Link>
+          )}
         </div>
       </nav>
     </header>

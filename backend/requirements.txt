@@ -11,3 +11,4 @@ python-dotenv
 stripe
 rank_bm25
 cohere
+supabase

@@ -3,7 +3,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import upload, analyze, webhooks
+from routers import upload, analyze, webhooks, contracts
 from services.knowledge_base import ensure_kb_built
 
 app = FastAPI(title="Contract AI — Backend")
@@ -18,6 +18,7 @@ app.add_middleware(
 app.include_router(upload.router,   prefix="/api")
 app.include_router(analyze.router,  prefix="/api")
 app.include_router(webhooks.router, prefix="/api")
+app.include_router(contracts.router, prefix="/api")
 
 
 @app.on_event("startup")

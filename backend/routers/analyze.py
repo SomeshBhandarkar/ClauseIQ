@@ -3,11 +3,9 @@ import json
 import uuid
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from services.analyzer import analyze_contract, load_result
+from services.database import save_job, update_job, get_job, save_contract, get_contract
 
 router = APIRouter()
-
-# In-memory job store
-jobs: dict = {}
 
 
 @router.post("/analyze/{contract_id}")
@@ -25,15 +23,7 @@ def analyze(contract_id: str, background_tasks: BackgroundTasks):
         )
 
     job_id = str(uuid.uuid4())
-    jobs[job_id] = {
-        "status":         "processing",
-        "progress":       0,
-        "total":          25,
-        "current_clause": "Detecting contract type...",  # ← new first step
-        "contract_type":  None,                          # ← new field
-        "report":         None,
-        "error":          None,
-    }
+    save_job(job_id, contract_id)
 
     background_tasks.add_task(_run_analysis, job_id, contract_id)
 
@@ -50,7 +40,7 @@ def get_status(job_id: str):
     GET /api/status/{job_id}
     Frontend polls this every 2 seconds.
     """
-    job = jobs.get(job_id)
+    job = get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
     return job
@@ -58,7 +48,10 @@ def get_status(job_id: str):
 
 @router.get("/report/{contract_id}")
 def get_report(contract_id: str):
-    """GET /api/report/{contract_id} — fetch a saved report from disk."""
+    """GET /api/report/{contract_id} — fetch a saved report, DB first, disk as fallback."""
+    report = get_contract(contract_id)
+    if report:
+        return report
     try:
         return load_result(contract_id)
     except FileNotFoundError:
@@ -90,19 +83,18 @@ def _run_analysis(job_id: str, contract_id: str):
         raw_text = " ".join(chunks)
 
         # Step 1 — detect contract type
-        jobs[job_id]["current_clause"] = "Detecting contract type..."
+        update_job(job_id, current_clause="Detecting contract type...")
         contract_type = detect_contract_type(raw_text)
-        jobs[job_id]["contract_type"] = contract_type
+        update_job(job_id, contract_type=contract_type)
 
         # Step 2 — load right query set
         clause_queries = QUERIES_BY_TYPE.get(contract_type, GENERAL_QUERIES)
-        jobs[job_id]["total"] = len(clause_queries)
+        update_job(job_id, total=len(clause_queries))
 
         # Step 3 — run each query
         findings = []
         for i, (clause_key, query) in enumerate(clause_queries):
-            jobs[job_id]["progress"]       = i
-            jobs[job_id]["current_clause"] = _friendly_name(clause_key)
+            update_job(job_id, progress=i, current_clause=_friendly_name(clause_key))
 
             relevant_chunks = retrieve(query, contract_id, top_k=5)
             context = "\n\n---\n\n".join(relevant_chunks)
@@ -110,14 +102,21 @@ def _run_analysis(job_id: str, contract_id: str):
             findings.append(result)
 
         # Step 4 — generate summary
-        jobs[job_id]["current_clause"] = "Generating summary..."
-        jobs[job_id]["progress"]       = len(clause_queries)
+        update_job(job_id, current_clause="Generating summary...", progress=len(clause_queries))
 
         grouped = _group_findings(findings)
         summary = _generate_summary(findings, contract_type)
 
+        filename = None
+        try:
+            with open(f"uploads/{contract_id}.meta.json") as mf:
+                filename = json.load(mf).get("filename")
+        except FileNotFoundError:
+            pass
+
         report = {
             "contract_id":       contract_id,
+            "filename":          filename or "Unknown",
             "contract_type":     contract_type,
             "findings":          findings,
             "grouped":           grouped,
@@ -128,13 +127,12 @@ def _run_analysis(job_id: str, contract_id: str):
         }
 
         _save_result(contract_id, report)
+        save_contract(contract_id, "anonymous", report)
 
-        jobs[job_id]["status"] = "done"
-        jobs[job_id]["report"] = report
+        update_job(job_id, status="done", report=report)
 
     except Exception as e:
-        jobs[job_id]["status"] = "error"
-        jobs[job_id]["error"]  = str(e)
+        update_job(job_id, status="error", error=str(e))
 
 
 def _friendly_name(clause_key: str) -> str:
