@@ -127,9 +127,9 @@ def _run_analysis(job_id: str, contract_id: str):
         }
 
         _save_result(contract_id, report)
-        save_contract(contract_id, "anonymous", report)
+        save_contract(contract_id, None, report)
 
-        update_job(job_id, status="done", report=report)
+        update_job(job_id, status="done")
 
     except Exception as e:
         update_job(job_id, status="error", error=str(e))

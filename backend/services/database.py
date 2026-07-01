@@ -12,7 +12,7 @@ def get_db():
         )
     return _client
 
-def save_job(job_id, contract_id, user_id="anonymous"):
+def save_job(job_id, contract_id, user_id=None):
     get_db().table("jobs").insert({
         "job_id": job_id,
         "contract_id": contract_id,
@@ -48,7 +48,9 @@ def get_contract(contract_id):
     return result.data[0].get("report_json") if result.data else None
 
 def list_contracts(user_id):
-    result = get_db().table("contracts").select(
+    query = get_db().table("contracts").select(
         "contract_id, filename, contract_type, high_risk_count, medium_risk_count, analyzed_at"
-    ).eq("user_id", user_id).order("analyzed_at", desc=True).execute()
+    )
+    query = query.is_("user_id", "null") if user_id is None else query.eq("user_id", user_id)
+    result = query.order("analyzed_at", desc=True).execute()
     return result.data or []
