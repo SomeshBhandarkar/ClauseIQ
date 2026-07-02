@@ -27,3 +27,6 @@ build/
 
 # Claude Code context file — local only
 CLAUDE.md
+
+# Test upload artifact
+contract.pdf
