@@ -29,28 +29,28 @@ CLAUSE_KNOWLEDGE = [
 
     # ── IP OWNERSHIP ──────────────────────────────────────────────────────────
     {
-        "clause_key":          "ip_general",
+        "clause_key":          "ip_ownership_general",
         "what_it_means":       "An IP ownership clause determines who legally owns the work product created during the contract. In work-for-hire arrangements, the client owns everything. In licensing arrangements, the contractor retains ownership but grants usage rights.",
         "industry_standard":   "Standard freelance contracts assign ownership of final deliverables to the client but protect the contractor's pre-existing tools, frameworks, and background IP. Pure work-for-hire with no carve-outs is aggressive.",
         "red_flags":           "Watch for: 'all work product', 'any and all deliverables', 'including work created outside working hours'. These phrases mean the client claims everything with no exceptions.",
         "negotiation":         "Negotiate to add: 'excluding Contractor pre-existing IP listed in Schedule A' and 'excluding work created on Contractor personal time unrelated to this agreement'.",
     },
     {
-        "clause_key":          "ip_personal_time",
+        "clause_key":          "ip_ownership_personal_time",
         "what_it_means":       "Some IP assignment clauses extend beyond work done for the client and claim ownership of anything the contractor creates during the contract period — even personal side projects built at home on weekends.",
         "industry_standard":   "Reputable companies limit IP assignment to work done using company resources or directly related to company business. Claiming personal-time work is aggressive and increasingly unenforceable in some states like California.",
         "red_flags":           "Watch for: 'during the term of this agreement', 'whether or not during working hours', 'using any company resources'. California Labor Code Section 2870 limits this for employees.",
         "negotiation":         "Add: 'This assignment excludes any invention that does not relate to Company business and was developed entirely on Contractor own time without using Company equipment or resources.'",
     },
     {
-        "clause_key":          "ip_preexisting",
+        "clause_key":          "ip_ownership_preexisting",
         "what_it_means":       "Pre-existing IP refers to tools, code, frameworks, designs, or methods the contractor developed before this contract started. Without explicit protection, these may be swept into the IP assignment clause.",
         "industry_standard":   "Standard practice is to attach a Schedule A listing the contractor's pre-existing IP that is explicitly excluded from assignment. This protects the contractor's ability to reuse their own tools on future projects.",
         "red_flags":           "If there is no Schedule A or no carve-out for pre-existing IP, assume the client will claim ownership of everything including your existing tools and frameworks.",
         "negotiation":         "Add Schedule A listing all pre-existing tools and frameworks. Add language: 'Contractor retains all rights to pre-existing IP listed in Schedule A. Client receives a limited license to use such IP solely for the deliverables.'",
     },
     {
-        "clause_key":          "ip_moral_rights",
+        "clause_key":          "ip_ownership_moral_rights",
         "what_it_means":       "Moral rights are the right to be credited as the creator and the right to object to changes that harm your reputation. In the US moral rights are limited but exist for visual art under VARA. In EU countries they are much stronger.",
         "industry_standard":   "Most US commercial contracts waive moral rights entirely. This is standard and generally acceptable for commercial work. For artistic or portfolio work, consider negotiating attribution rights.",
         "red_flags":           "If you want portfolio usage rights, ensure the contract explicitly allows you to show the work in your portfolio. Many NDA clauses accidentally prevent this.",
@@ -142,7 +142,7 @@ CLAUSE_KNOWLEDGE = [
 
     # ── AUTO-RENEWAL ──────────────────────────────────────────────────────────
     {
-        "clause_key":          "auto_renewal",
+        "clause_key":          "auto_renewal_exists",
         "what_it_means":       "Auto-renewal clauses automatically extend the contract for another term unless one party actively cancels before the deadline. Missing the cancellation deadline means you are locked in for another full term.",
         "industry_standard":   "Auto-renewal with 30-60 days notice to cancel is standard for ongoing service contracts. Annual contracts typically require 30-90 days advance notice. Short notice windows under 14 days are aggressive.",
         "red_flags":           "Watch for: very long renewal terms (2+ years), very short cancellation windows (under 30 days), and auto-renewal combined with price increase rights.",
@@ -158,21 +158,21 @@ CLAUSE_KNOWLEDGE = [
 
     # ── NON-COMPETE AND RESTRICTIONS ──────────────────────────────────────────
     {
-        "clause_key":          "non_compete_scope",
+        "clause_key":          "restrictions_non_compete",
         "what_it_means":       "A non-compete clause prevents the contractor from working for competitors or starting a competing business for a defined period after the contract ends. Overly broad non-competes can significantly limit earning potential.",
         "industry_standard":   "6-12 months is standard for freelance non-competes. Geographic limitations should be reasonable. Industry limitations should be narrowly defined to direct competitors only. 2+ year non-competes are aggressive.",
         "red_flags":           "Watch for: global geographic scope, very broad industry definitions, long durations (2+ years), and no compensation for the non-compete period. Non-competes are unenforceable in California and increasingly limited in other states.",
         "negotiation":         "Limit duration to 6 months, limit geography to where the client actively operates, limit scope to direct competitors in the same niche. Always ask: 'What additional compensation do you offer for this non-compete?'",
     },
     {
-        "clause_key":          "non_solicitation",
+        "clause_key":          "restrictions_non_solicitation",
         "what_it_means":       "Non-solicitation clauses prevent the contractor from poaching the client's customers or employees after the contract ends. This is different from non-compete — it does not prevent working in the same industry.",
         "industry_standard":   "12-24 months for non-solicitation of customers is standard and generally enforceable. Non-solicitation of employees for 12 months is common. These are generally more enforceable than broad non-competes.",
         "red_flags":           "Watch for non-solicitation that covers people you already knew before the contract, or that prevents you from working with customers who approach you first.",
         "negotiation":         "Limit to customers you directly worked with during the contract, not all customers of the business. Add: 'excluding any person or entity with whom Contractor had a pre-existing relationship prior to this agreement.'",
     },
     {
-        "clause_key":          "exclusivity",
+        "clause_key":          "restrictions_exclusivity",
         "what_it_means":       "An exclusivity clause prevents the contractor from working with other clients, competitors, or in the same industry during the contract term. This essentially makes you a full-time employee without employee benefits.",
         "industry_standard":   "Exclusivity is unusual for freelance contracts unless the client is paying a premium retainer. If exclusivity is required, expect to be compensated at or near full-time employment rates.",
         "red_flags":           "Exclusivity at freelance rates is extremely aggressive — you are being paid part-time but prevented from earning other income. This is a major red flag.",
@@ -181,14 +181,14 @@ CLAUSE_KNOWLEDGE = [
 
     # ── GOVERNING LAW ─────────────────────────────────────────────────────────
     {
-        "clause_key":          "governing_law",
+        "clause_key":          "governing_law_jurisdiction",
         "what_it_means":       "The governing law clause specifies which state or country's laws apply to the contract and where disputes must be litigated. This matters enormously if you ever need to enforce the contract or defend a claim.",
         "industry_standard":   "Governing law in the client's home state is standard and usually acceptable. Requiring disputes to be litigated in a distant city or country is burdensome for the contractor.",
         "red_flags":           "Watch for: foreign jurisdiction (especially for US contractors), requiring disputes in the client's city far from yours, or mandatory arbitration in an inconvenient location.",
         "negotiation":         "If the governing law jurisdiction is inconvenient, negotiate for your own state or a neutral venue. At minimum, ensure remote participation is allowed for any proceedings.",
     },
     {
-        "clause_key":          "dispute_resolution",
+        "clause_key":          "governing_law_disputes",
         "what_it_means":       "Dispute resolution clauses specify how conflicts are resolved — through court litigation, binding arbitration, or mediation first then arbitration. Each has different costs, timelines, and outcomes.",
         "industry_standard":   "Mediation then arbitration is standard for commercial contracts. Mandatory binding arbitration with class action waiver is common but controversial. Litigation in court gives both parties more rights but costs more.",
         "red_flags":           "Watch for: mandatory arbitration in a specific city, arbitration costs borne entirely by one party, class action waivers for consumer contracts, very short statutes of limitations.",
