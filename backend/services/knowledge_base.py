@@ -2,7 +2,7 @@ import os
 import json
 import numpy as np
 import faiss
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 
 _model = None
 
@@ -10,7 +10,7 @@ _model = None
 def get_model():
     global _model
     if _model is None:
-        _model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+        _model = TextEmbedding("BAAI/bge-small-en-v1.5")
     return _model
 
 STORE_DIR    = "vector_store"
@@ -268,7 +268,7 @@ def build_knowledge_base() -> None:
         )
         texts.append(combined)
 
-    embeddings = get_model().encode(texts, show_progress_bar=False)
+    embeddings = list(get_model().embed(texts))
     embeddings = np.array(embeddings, dtype="float32")
 
     index = faiss.IndexFlatL2(384)

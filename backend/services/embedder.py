@@ -2,7 +2,7 @@ import os
 import json
 import numpy as np
 import faiss
-from sentence_transformers import SentenceTransformer
+from fastembed import TextEmbedding
 from services.chunker import Chunk
 
 _model = None
@@ -11,7 +11,7 @@ _model = None
 def get_model():
     global _model
     if _model is None:
-        _model = SentenceTransformer("paraphrase-MiniLM-L3-v2")
+        _model = TextEmbedding("BAAI/bge-small-en-v1.5")
     return _model
 
 DIMENSION = 384
@@ -34,7 +34,7 @@ def embed_and_store(contract_id: str, chunks: list[Chunk]) -> None:
     texts = [chunk.text for chunk in chunks]
 
     # ── Embed all chunks in one batch ────────────────────────────────────────
-    embeddings = get_model().encode(texts, show_progress_bar=False)
+    embeddings = list(get_model().embed(texts))
     embeddings = np.array(embeddings, dtype="float32")
 
     # ── Build and save FAISS index ───────────────────────────────────────────
